@@ -183,6 +183,7 @@ function Library:CreateWindow(options)
     local topbarLogo = nil
     local logoSize = 32
     local sphIconSize = 26
+    local footerText = nil
 
     if type(options) == "table" then
         hubName = options.Title or hubName
@@ -206,6 +207,7 @@ function Library:CreateWindow(options)
         topbarLogo = options.Logo
         logoSize = options.LogoSize or 32
         sphIconSize = options.SphereIconSize or 26
+        footerText = options.FooterText
     elseif type(options) == "string" then
         hubName = options
     end
@@ -388,20 +390,30 @@ function Library:CreateWindow(options)
     end
     AddBounce(ResizeHandle, 0.92)
 
+    -- Base (unscaled) dimensions, used below to keep the TOP-LEFT corner fixed in
+    -- place while resizing, so growth visibly comes from the bottom-right corner
+    -- the handle sits on, rather than growing outward from the window's center.
+    local BASE_W, BASE_H = 800, 520
     local MinUIScale, MaxUIScale = 0.75, 1.6
-    local resizing, resizeStart, resizeStartScale = false, nil, nil
+    local resizing, resizeStart, resizeStartScale, resizeStartPos = false, nil, nil, nil
     ResizeHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             resizing = true
             resizeStart = input.Position
             resizeStartScale = MainScale.Scale
+            resizeStartPos = MainFrame.Position
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
         if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = (input.Position.X - resizeStart.X) + (input.Position.Y - resizeStart.Y)
             local newScale = math.clamp(resizeStartScale + delta / 420, MinUIScale, MaxUIScale)
+            local scaleDelta = newScale - resizeStartScale
             MainScale.Scale = newScale
+            MainFrame.Position = UDim2.new(
+                resizeStartPos.X.Scale, resizeStartPos.X.Offset + (BASE_W / 2) * scaleDelta,
+                resizeStartPos.Y.Scale, resizeStartPos.Y.Offset + (BASE_H / 2) * scaleDelta
+            )
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -465,6 +477,9 @@ function Library:CreateWindow(options)
     local Subtitle = Create("TextLabel", {Parent = TitleContainer, Text = subText, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = subColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 27), Size = UDim2.new(1, 0, 0, 14), TextXAlignment = Enum.TextXAlignment.Left})
 
     local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.new(0, 250, 0, 30), Position = UDim2.new(0, 210, 0.5, -15)})
+    if footerText then
+        Create("TextLabel", {Parent = TopBar, Text = footerText, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = AccentColor, BackgroundTransparency = 1, Size = UDim2.new(0, 220, 0, 30), Position = UDim2.new(0, 470, 0.5, -15), TextXAlignment = Enum.TextXAlignment.Left})
+    end
     Create("UICorner", {Parent = SearchBar, CornerRadius = UDim.new(0, 6)})
     local SearchIcon = Create("ImageLabel", {Parent = SearchBar, BackgroundTransparency = 1, Image = "rbxassetid://6031154871", ImageColor3 = SubTextColor, Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 8, 0.5, -7)})
     local SearchInput = Create("TextBox", {Parent = SearchBar, BackgroundTransparency = 1, Size = UDim2.new(1, -30, 1, 0), Position = UDim2.new(0, 30, 0, 0), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search..", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
@@ -966,7 +981,7 @@ function Library:CreateWindow(options)
                     local selected = isMulti and {} or (options[1] or nil)
                     local dropped = false
                     local optionButtons = {}
-                    local maxVisible = math.min(#options, 3)
+                    local maxVisible = math.min(#options, 7)
                     local listHeight = maxVisible * 25
                     local dropOpenHeight = 88 + listHeight
                     
@@ -1015,7 +1030,7 @@ function Library:CreateWindow(options)
                         if callback then callback(selected) end
                     end
 
-                    for _, opt in pairs(options) do
+                    local function BuildOption(opt)
                         local isInitialSelected = (not isMulti and selected == opt)
                         local OptBtn = Create("TextButton", {Parent = ListFrame, Text = opt, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = isInitialSelected and TextColor or SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), AutoButtonColor = false})
                         local Check = Create("Frame", {Parent = OptBtn, BackgroundColor3 = AccentColor, Size = isInitialSelected and UDim2.new(1, 0, 1, 0) or UDim2.new(0, 0, 1, 0), BackgroundTransparency = 0.8})
@@ -1038,7 +1053,35 @@ function Library:CreateWindow(options)
                             end
                         end)
                     end
+
+                    for _, opt in pairs(options) do BuildOption(opt) end
                     UpdateText()
+
+                    -- // Nexus Hub: rebuild this dropdown's option list in place (e.g. a
+                    -- "Refresh Player List" button). Exposed as Window.ConfigElements[name].Refresh.
+                    local function RefreshOptions(newOptions)
+                        options = newOptions
+                        for _, btn in ipairs(optionButtons) do btn:Destroy() end
+                        table.clear(optionButtons)
+                        if isMulti then
+                            for i = #selected, 1, -1 do
+                                if not table.find(newOptions, selected[i]) then table.remove(selected, i) end
+                            end
+                        elseif selected ~= nil and not table.find(newOptions, selected) then
+                            selected = newOptions[1]
+                        end
+                        for _, opt in pairs(options) do BuildOption(opt) end
+                        maxVisible = math.min(#options, 7)
+                        listHeight = maxVisible * 25
+                        ListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 25)
+                        UpdateText()
+                        for _, btn in ipairs(optionButtons) do
+                            local isSel = isMulti and table.find(selected, btn.Text) ~= nil or (selected == btn.Text)
+                            btn.TextColor3 = isSel and TextColor or SubTextColor
+                            local chk = btn:FindFirstChild("Frame")
+                            if chk then chk.Size = isSel and UDim2.new(1, 0, 1, 0) or UDim2.new(0, 0, 1, 0) end
+                        end
+                    end
 
                     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
                         local q = SearchBox.Text:lower()
@@ -1075,7 +1118,7 @@ function Library:CreateWindow(options)
                     end)
                     AddInfoIcon(DropFrame, UDim2.new(1, -25, 0, 0), infoData)
 
-                    Window.ConfigElements[name] = { Set = internalSet, Get = function() return selected end }
+                    Window.ConfigElements[name] = { Set = internalSet, Get = function() return selected end, Refresh = RefreshOptions }
                 end
 
                 function Elements:AddTextbox(name, placeholder, callback, infoData)
