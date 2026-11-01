@@ -1243,6 +1243,36 @@ function Library:CreateWindow(options)
                     Window.ConfigElements[name] = { Set = internalSet, Get = function() return color:ToHex() end }
                 end
 
+                -- // Nexus Hub addition: a simple read-only list of colored text rows
+                -- (e.g. a player roster), rebuildable in place via SetItems(). Not a
+                -- Window.ConfigElements entry since there's no single value to save.
+                function Elements:AddList(name)
+                    local ListHolder = Create("Frame", {Parent = ItemContainer, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y})
+                    local topPad = 0
+                    if name then
+                        Create("TextLabel", {Parent = ListHolder, Text = name, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left})
+                        topPad = 22
+                    end
+                    local RowsFrame = Create("Frame", {Parent = ListHolder, BackgroundTransparency = 1, Position = UDim2.new(0, 10, 0, topPad), Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y})
+                    Create("UIListLayout", {Parent = RowsFrame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)})
+                    local rowInstances = {}
+
+                    local function SetItems(items)
+                        for _, r in ipairs(rowInstances) do r:Destroy() end
+                        table.clear(rowInstances)
+                        if not items or #items == 0 then
+                            table.insert(rowInstances, Create("TextLabel", {Parent = RowsFrame, Text = "(empty)", Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left}))
+                            return
+                        end
+                        for _, item in ipairs(items) do
+                            table.insert(rowInstances, Create("TextLabel", {Parent = RowsFrame, Text = item.text, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = item.color or TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left}))
+                        end
+                    end
+
+                    SetItems({})
+                    return {SetItems = SetItems}
+                end
+
                 function Elements:AddConfigManager(folderName)
                     folderName = folderName or "zyronxSavers"
                     -- Some executors/sandboxes resolve a bare folder name against an
