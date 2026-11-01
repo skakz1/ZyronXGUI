@@ -687,18 +687,21 @@ function Library:CreateWindow(options)
         local Holder = Create("Frame", {Parent = parent, BackgroundTransparency = 1, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 12, 0.5, -9)})
         local col = SubTextColor
         if kind == "star" then
+            -- Four short bars crossing through the center, each individually
+            -- rounded (the old version put the UICorner on the transparent Holder
+            -- instead of the bars themselves, so it had no visible effect).
             for i = 0, 3 do
                 local bar = Create("Frame", {Parent = Holder, BackgroundColor3 = col, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 2, 0, 16), Rotation = i * 45})
+                Create("UICorner", {Parent = bar, CornerRadius = UDim.new(1, 0)})
             end
-            Create("UICorner", {Parent = Holder, CornerRadius = UDim.new(1, 0)})
         elseif kind == "dollar" then
-            Create("Frame", {Parent = Holder, BackgroundColor3 = col, Size = UDim2.new(0, 2, 1, -4), Position = UDim2.new(0.5, -1, 0, 2)})
-            local top = Create("Frame", {Parent = Holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0.45, 0), Position = UDim2.new(0, 0, 0, 1)})
-            Create("UIStroke", {Parent = top, Color = col, Thickness = 2})
-            Create("UICorner", {Parent = top, CornerRadius = UDim.new(1, 0)})
-            local bottom = Create("Frame", {Parent = Holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0.45, 0), Position = UDim2.new(0, 0, 0.55, -1)})
-            Create("UIStroke", {Parent = bottom, Color = col, Thickness = 2})
-            Create("UICorner", {Parent = bottom, CornerRadius = UDim.new(1, 0)})
+            -- Simple coin: a solid circle with a thin vertical bar through it,
+            -- rather than the previous two-stroke "$" shape which didn't read
+            -- clearly at 18px.
+            local coin = Create("Frame", {Parent = Holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0)})
+            Create("UIStroke", {Parent = coin, Color = col, Thickness = 2})
+            Create("UICorner", {Parent = coin, CornerRadius = UDim.new(1, 0)})
+            Create("Frame", {Parent = Holder, BackgroundColor3 = col, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 2, 0, 12)})
         elseif kind == "person" then
             Create("UICorner", {Parent = Create("Frame", {Parent = Holder, BackgroundColor3 = col, Size = UDim2.new(0, 8, 0, 8), Position = UDim2.new(0.5, -4, 0, 0)}), CornerRadius = UDim.new(1, 0)})
             local body = Create("Frame", {Parent = Holder, BackgroundColor3 = col, Size = UDim2.new(1, 0, 0, 8), Position = UDim2.new(0, 0, 1, -8)})
