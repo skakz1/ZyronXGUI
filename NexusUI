@@ -332,7 +332,7 @@ function Library:CreateWindow(options)
     local MainFrame = Create("Frame", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, Size = UDim2.new(0, 800, 0, 520), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundTransparency = 1, Active = true})
     local MainScale = Create("UIScale", {Parent = MainFrame, Scale = 0.8})
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
-    Create("UIStroke", {Parent = MainFrame, Color = Color3.fromRGB(40, 40, 45), Thickness = 1})
+    Create("UIStroke", {Parent = MainFrame, Color = AccentColor, Thickness = 1.5})
     Tween(MainScale, {Scale = 1}, 0.5)
     Tween(MainFrame, {BackgroundTransparency = 0}, 0.5)
 
@@ -360,7 +360,7 @@ function Library:CreateWindow(options)
     Create("UICorner", {Parent = FloatingBottomBar, CornerRadius = UDim.new(1, 0)})
     local BottomBarStroke = Create("UIStroke", {
         Parent = FloatingBottomBar, 
-        Color = Color3.fromRGB(50, 50, 55), 
+        Color = AccentColor, 
         Thickness = 1.2, 
         Transparency = 0
     })
@@ -395,24 +395,28 @@ function Library:CreateWindow(options)
     -- the handle sits on, rather than growing outward from the window's center.
     local BASE_W, BASE_H = 800, 520
     local MinUIScale, MaxUIScale = 0.75, 1.6
-    local resizing, resizeStart, resizeStartScale, resizeStartPos = false, nil, nil, nil
+    local resizing, resizeStartTL = false, nil
     ResizeHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             resizing = true
-            resizeStart = input.Position
-            resizeStartScale = MainScale.Scale
-            resizeStartPos = MainFrame.Position
+            -- The fixed point: the window's actual on-screen top-left corner right
+            -- now, in pixels. Everything below is computed directly from the live
+            -- mouse position relative to this fixed point - not from how far the
+            -- mouse has moved since - so the corner tracks the cursor exactly
+            -- instead of lagging/"snapping" the way a velocity-based drag would.
+            resizeStartTL = Vector2.new(MainFrame.AbsolutePosition.X, MainFrame.AbsolutePosition.Y)
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
         if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = (input.Position.X - resizeStart.X) + (input.Position.Y - resizeStart.Y)
-            local newScale = math.clamp(resizeStartScale + delta / 420, MinUIScale, MaxUIScale)
-            local scaleDelta = newScale - resizeStartScale
+            local mouse = input.Position
+            local scaleX = (mouse.X - resizeStartTL.X) / BASE_W
+            local scaleY = (mouse.Y - resizeStartTL.Y) / BASE_H
+            local newScale = math.clamp((scaleX + scaleY) / 2, MinUIScale, MaxUIScale)
             MainScale.Scale = newScale
             MainFrame.Position = UDim2.new(
-                resizeStartPos.X.Scale, resizeStartPos.X.Offset + (BASE_W / 2) * scaleDelta,
-                resizeStartPos.Y.Scale, resizeStartPos.Y.Offset + (BASE_H / 2) * scaleDelta
+                0, resizeStartTL.X + (BASE_W / 2) * newScale,
+                0, resizeStartTL.Y + (BASE_H / 2) * newScale
             )
         end
     end)
@@ -1342,7 +1346,8 @@ function Library:CreateWindow(options)
                         for _, v in ipairs(Monitor:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
                         selectedForDelete = {}
 
-                        local files = _listfiles(folderName)
+                        local listOk, files = pcall(_listfiles, folderName)
+                        files = (listOk and files) or {}
                         for _, filepath in ipairs(files) do
                             local rawName = filepath:match("([^/\\]+)%.json$")
                             if rawName then
@@ -1411,9 +1416,13 @@ function Library:CreateWindow(options)
                         local encoded = HttpService:JSONEncode(payload)
                         local uniqueKey = tostring(math.floor(tick()))
                         local finalPath = folderName .. "/" .. saveName .. "_" .. uniqueKey .. ".json"
-                        _writefile(finalPath, encoded)
+                        local saveOk = pcall(_writefile, finalPath, encoded)
                         RefreshMonitor()
-                        Library:Notify({Title = "Saved Successfully", Description = "Config [" .. saveName .. "] secured."})
+                        if saveOk then
+                            Library:Notify({Title = "Saved Successfully", Description = "Config [" .. saveName .. "] secured."})
+                        else
+                            Library:Notify({Title = "Save Failed", Description = "This executor won't let the script write files here."})
+                        end
                     end
 
                     CreateBtn.MouseButton1Click:Connect(function()
