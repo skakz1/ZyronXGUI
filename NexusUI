@@ -1241,7 +1241,18 @@ function Library:CreateWindow(options)
 
                 function Elements:AddConfigManager(folderName)
                     folderName = folderName or "zyronxSavers"
-                    if not _isfolder(folderName) then _makefolder(folderName) end
+                    -- Some executors/sandboxes resolve a bare folder name against an
+                    -- unwritable path (e.g. System32) and throw on create. That used to
+                    -- be unguarded here, which - since this runs synchronously - could
+                    -- kill the rest of the script's top-level execution outright. A
+                    -- failure now just means saving won't work; it no longer takes
+                    -- anything else down with it.
+                    local folderOk = pcall(function()
+                        if not _isfolder(folderName) then _makefolder(folderName) end
+                    end)
+                    if not folderOk then
+                        warn("[" .. folderName .. "] Config folder isn't writable here - Config Manager will still show, but Save/Load/Delete won't work on this executor.")
+                    end
 
                     local ManagerFrame = Create("Frame", {Parent = ItemContainer, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 240)})
                     
