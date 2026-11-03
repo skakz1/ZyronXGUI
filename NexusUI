@@ -1287,7 +1287,28 @@ function Library:CreateWindow(options)
                             return
                         end
                         for _, item in ipairs(items) do
-                            table.insert(rowInstances, Create("TextLabel", {Parent = RowsFrame, Text = item.text, Font = Enum.Font.Sarpanch, TextSize = 13, TextColor3 = item.color or TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left}))
+                            if item.wrap then
+                                -- Multi-line paragraph row: built by hand rather than via
+                                -- Create(), which always turns on TextScaled for any
+                                -- TextSize it's given - that shrinks text to fit one line
+                                -- instead of wrapping it, which is the wrong behaviour for
+                                -- a real paragraph of text.
+                                local row = Instance.new("TextLabel")
+                                row.Parent = RowsFrame
+                                row.Text = item.text
+                                row.Font = Enum.Font.Ubuntu
+                                row.TextSize = 13
+                                row.TextColor3 = item.color or SubTextColor
+                                row.BackgroundTransparency = 1
+                                row.TextWrapped = true
+                                row.TextXAlignment = Enum.TextXAlignment.Left
+                                row.TextYAlignment = Enum.TextYAlignment.Top
+                                row.Size = UDim2.new(1, 0, 0, 0)
+                                row.AutomaticSize = Enum.AutomaticSize.Y
+                                table.insert(rowInstances, row)
+                            else
+                                table.insert(rowInstances, Create("TextLabel", {Parent = RowsFrame, Text = item.text, Font = Enum.Font.Sarpanch, TextSize = 13, TextColor3 = item.color or TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left}))
+                            end
                         end
                     end
 
